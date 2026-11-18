@@ -7,7 +7,7 @@ permissions:
 
 jobs:
   validacion:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -15,10 +15,31 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Instalar Android SDK 34
-        run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
+      - name: Comprobar Android SDK 34
+        run: |
+          test -f "$ANDROID_HOME/platforms/android-34/android.jar"
+          test -d "$ANDROID_HOME/build-tools/34.0.0"
       - name: Ejecutar pruebas y Android Lint
         run: bash ./gradlew :app:testDebugUnitTest :app:lintDebug --continue --no-daemon
+      - name: Resumir pruebas JUnit
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          from pathlib import Path
+          from xml.etree import ElementTree as ET
+
+          reports = sorted(Path("app/build/test-results/testDebugUnitTest").glob("TEST-*.xml"))
+          print("### Resultados de pruebas Android")
+          if not reports:
+              print("No se generaron reportes JUnit.")
+          else:
+              suites = [ET.parse(report).getroot() for report in reports]
+              totals = {key: sum(int(s.get(key, 0)) for s in suites)
+                        for key in ("tests", "failures", "errors", "skipped")}
+              passed = totals["tests"] - totals["failures"] - totals["errors"] - totals["skipped"]
+              print(f"**{passed}/{totals['tests']} aprobadas** · "
+                    f"{totals['failures'] + totals['errors']} fallidas · {totals['skipped']} omitidas")
+          PY
       - name: Guardar resultados
         if: always()
         uses: actions/upload-artifact@v4

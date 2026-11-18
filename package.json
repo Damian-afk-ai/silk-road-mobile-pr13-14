@@ -1,0 +1,9 @@
+{
+  "name": "silkroad-practicas-8-10",
+  "private": true,
+  "scripts": {
+    "emulators": "firebase emulators:start --project demo-silkroad --only auth,firestore",
+    "test:rules": "node scripts/test-rules.mjs"
+  },
+  "devDependencies": { "firebase-tools": "14.22.0" }
+}

@@ -1,0 +1,14 @@
+.gradle/
+.hosting-gradle/
+.idea/
+**/build/
+local.properties
+**/local.properties
+*.iml
+*.jks
+*.keystore
+node_modules/
+.firebase/
+*-debug.log
+firebase-export/
+app/google-services.json

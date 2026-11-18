@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- APK académico debug: servidor local configurable para la red del salón. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

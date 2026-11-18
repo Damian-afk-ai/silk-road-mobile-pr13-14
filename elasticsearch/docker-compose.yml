@@ -1,0 +1,27 @@
+# Elasticsearch local para el buscador de Silk Road (solo desarrollo / evaluación académica).
+# Uso:  docker compose -f elasticsearch/docker-compose.yml up -d
+# El emulador de Android accede al host en http://10.0.2.2:9200
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: silkroad-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      # HTTP sin TLS para simplificar el acceso desde el emulador (solo red local).
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-SilkRoadElastic2026}
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - silkroad-es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -u elastic:$${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health | grep -q '\"status\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  silkroad-es-data:

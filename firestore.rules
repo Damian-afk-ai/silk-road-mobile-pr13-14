@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function valid(d) {
+      return d.keys().hasAll(['titulo', 'descripcion', 'estado', 'prioridad',
+                             'creadoPor', 'editadoPor', 'creadoEn', 'actualizadoEn', 'version'])
+          && d.keys().hasOnly(['titulo', 'descripcion', 'estado', 'prioridad',
+                              'creadoPor', 'editadoPor', 'creadoEn', 'actualizadoEn', 'version'])
+          && d.titulo is string && d.titulo.size() > 0 && d.titulo.size() <= 120
+          && d.titulo.matches('.*[^\\s].*')
+          && d.descripcion is string && d.descripcion.size() <= 2000
+          && d.estado in ['Pendiente', 'En proceso', 'Resuelta']
+          && d.prioridad in ['Baja', 'Media', 'Alta', 'Crítica']
+          && d.creadoPor is string && d.creadoPor.size() > 0
+          && d.editadoPor is string
+          && d.creadoEn is timestamp && d.actualizadoEn is timestamp
+          && d.version is int && d.version >= 1;
+    }
+    match /incidencias/{id} {
+      allow get, list: if signedIn() && resource.data.creadoPor == request.auth.uid;
+      allow create: if signedIn() && valid(request.resource.data)
+          && request.resource.data.creadoPor == request.auth.uid
+          && request.resource.data.editadoPor == request.auth.uid
+          && request.resource.data.version == 1
+          && request.resource.data.creadoEn == request.time
+          && request.resource.data.actualizadoEn == request.time;
+      allow update: if signedIn() && resource.data.creadoPor == request.auth.uid
+          && valid(request.resource.data)
+          && request.resource.data.creadoPor == resource.data.creadoPor
+          && request.resource.data.creadoEn == resource.data.creadoEn
+          && request.resource.data.editadoPor == request.auth.uid
+          && request.resource.data.actualizadoEn == request.time
+          && request.resource.data.version == resource.data.version + 1;
+      allow delete: if signedIn() && resource.data.creadoPor == request.auth.uid;
+    }
+    function validReport(d) {
+      return d.keys().hasAll(['equipo', 'descripcion', 'prioridad', 'estado', 'creadoPor', 'version'])
+          && d.keys().hasOnly(['equipo', 'descripcion', 'prioridad', 'estado', 'creadoPor', 'version'])
+          && d.equipo is string && d.equipo.size() > 0 && d.equipo.size() <= 120
+          && d.equipo.matches('.*[^\\s].*')
+          && d.descripcion is string && d.descripcion.size() > 0 && d.descripcion.size() <= 1000
+          && d.descripcion.matches('.*[^\\s].*')
+          && d.prioridad in ['Baja', 'Media', 'Alta']
+          && d.estado in ['Abierto', 'En proceso', 'Cerrado']
+          && d.creadoPor is string && d.version is int && d.version >= 1;
+    }
+    match /reportes/{id} {
+      // Una consulta de un ID ausente devuelve vacío a un usuario autenticado.
+      allow get: if signedIn() && (!exists(/databases/$(database)/documents/reportes/$(id))
+                                    || resource.data.creadoPor == request.auth.uid);
+      allow list: if signedIn() && resource.data.creadoPor == request.auth.uid;
+      allow create: if signedIn() && id.matches('REP[0-9]{3}') && validReport(request.resource.data)
+          && request.resource.data.creadoPor == request.auth.uid
+          && request.resource.data.version == 1;
+      allow update: if signedIn() && resource.data.creadoPor == request.auth.uid
+          && validReport(request.resource.data)
+          && request.resource.data.creadoPor == resource.data.creadoPor
+          && request.resource.data.version == resource.data.version + 1;
+      allow delete: if signedIn() && resource.data.creadoPor == request.auth.uid;
+    }
+
+    // Integracion Kotlin PR8 PR9 PR10: reportes nuevos, sin alterar colecciones anteriores.
+    function kotlinOwner() { return signedIn() && resource.data.creadoPor == request.auth.uid; }
+    function kotlinValid(d) {
+      return d.keys().hasAll(['titulo','equipo','descripcion','prioridad','status','fechaCreacion','creadoPor'])
+        && d.keys().hasOnly(['titulo','equipo','descripcion','prioridad','status','fechaCreacion','creadoPor'])
+        && d.titulo is string && d.titulo.size() >= 3 && d.titulo.size() <= 80
+        && d.equipo is string && d.equipo.size() >= 2 && d.equipo.size() <= 80
+        && d.descripcion is string && d.descripcion.size() >= 5 && d.descripcion.size() <= 500
+        && d.prioridad in ['Baja','Media','Alta','Crítica']
+        && d.status in ['Abierto','En Proceso','Resuelto','Cerrado']
+        && d.fechaCreacion is int && d.fechaCreacion > 0 && d.creadoPor is string;
+    }
+    function kotlinCreate() {
+      return signedIn() && kotlinValid(request.resource.data) && request.resource.data.creadoPor == request.auth.uid;
+    }
+    function kotlinUpdate() {
+      return kotlinValid(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','prioridad']);
+    }
+    match /reports/{id} {
+      allow create: if kotlinCreate();
+      allow read, delete: if kotlinOwner();
+      allow update: if kotlinOwner() && kotlinUpdate();
+    }
+    // Datos compartidos de prueba de la práctica 9, separados de los privados.
+    match /shared_reports/{id} {
+      allow create: if kotlinCreate();
+      allow read, delete: if signedIn();
+      allow update: if signedIn() && kotlinUpdate();
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "analysis": {
+      "filter": {
+        "edge_2_20": { "type": "edge_ngram", "min_gram": 2, "max_gram": 20 }
+      },
+      "analyzer": {
+        "folded": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding"]
+        },
+        "folded_prefix": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding", "edge_2_20"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "id": { "type": "integer" },
+      "title": {
+        "type": "text",
+        "analyzer": "folded",
+        "fields": {
+          "prefix": { "type": "text", "analyzer": "folded_prefix", "search_analyzer": "folded" }
+        }
+      },
+      "description": { "type": "text", "analyzer": "folded" },
+      "category": {
+        "type": "keyword",
+        "fields": { "text": { "type": "text", "analyzer": "folded" } }
+      },
+      "categoryLabel": {
+        "type": "text",
+        "analyzer": "folded",
+        "fields": {
+          "prefix": { "type": "text", "analyzer": "folded_prefix", "search_analyzer": "folded" }
+        }
+      },
+      "price": { "type": "double" },
+      "image": { "type": "keyword", "index": false }
+    }
+  }
+}

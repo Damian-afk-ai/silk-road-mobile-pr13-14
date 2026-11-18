@@ -140,9 +140,11 @@ class CatalogHttpIntegrationTest {
             } as SharedPreferences.Editor
         }
 
-        private fun <T> proxy(type: Class<T>, call: (String, Array<Any?>) -> Any?): T =
-            type.cast(Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { _, method, args ->
+        private fun <T : Any> proxy(type: Class<T>, call: (String, Array<Any?>) -> Any?): T {
+            val instance = Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { _, method, args ->
                 call(method.name, args ?: emptyArray())
-            })
+            }
+            return checkNotNull(type.cast(instance))
+        }
     }
 }
